@@ -1,0 +1,10 @@
+flask
+langchain
+# langchain-openai # Commented out for Gemini switch
+langchain-community
+langchain-google-genai # Added for Gemini
+duckduckgo-search
+python-dotenv
+gunicorn
+beautifulsoup4
+requests
