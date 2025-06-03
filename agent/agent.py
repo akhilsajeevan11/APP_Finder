@@ -4,6 +4,13 @@ from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import AgentExecutor, ConversationalChatAgent
 from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
+from langchain_core.prompts import (
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+    ChatPromptTemplate,
+    MessagesPlaceholder # Useful if we want to explicitly define where memory goes
+)
+# Note: ConversationalChatAgent.create_prompt already includes a MessagesPlaceholder for chat_history
 
 # Load environment variables from .env file
 load_dotenv()
@@ -32,15 +39,65 @@ def create_agent():
     # Initialize tools
     tools = [DuckDuckGoSearchRun()]
 
-    # Create the ConversationalChatAgent
+    # Agent Prompt Creation and Customization
     agent = None
     try:
-        # This uses a default prompt template optimized for conversational chat with tools
-        agent = ConversationalChatAgent.from_llm_and_tools(llm=llm, tools=tools)
-        print("ConversationalChatAgent initialized.")
+        # Create the default prompt for the agent
+        # This prompt already includes input_variables=['input', 'chat_history', 'agent_scratchpad']
+        # and a MessagesPlaceholder(variable_name='chat_history')
+        base_prompt = ConversationalChatAgent.create_prompt(tools=tools)
+
+        # Define our custom instructions for downloads
+        download_instructions = (
+            "\n\nSPECIFIC TASK: SOFTWARE DOWNLOADS\n"
+            "When a user explicitly asks to download software, an application, or a file:\n"
+            "1. Use your search tool to find the official website or a reputable source for the requested software.\n"
+            "2. Your primary goal is to find a direct download link for an installable file (e.g., .exe, .dmg, .tar.gz, .zip containing an installer).\n"
+            "3. If you find a general download page with multiple options (e.g., for different operating systems, versions, or architectures), you should either: \n"
+            "   a. List the main options clearly so the user can choose. \n"
+            "   b. Ask the user for clarification (e.g., 'What is your operating system?').\n"
+            "4. When providing a link, clearly state if it is a direct link to an installable file or a link to a webpage with further download instructions or options.\n"
+            "5. If, after searching, you cannot find a direct installable file link or a clear download page, inform the user of this and provide the link to the most relevant official product/project page you found.\n"
+            "Do not attempt to invent download links. Only provide links found through your search tool."
+        )
+
+        # Prepend our instructions to the existing system message in the prompt
+        new_messages = []
+        system_message_modified = False
+        for msg_template in base_prompt.messages:
+            if isinstance(msg_template, SystemMessagePromptTemplate):
+                # Assuming msg_template.prompt is a PromptTemplate or similar with a 'template' attribute
+                if hasattr(msg_template, 'prompt') and hasattr(msg_template.prompt, 'template'):
+                    original_system_message = msg_template.prompt.template
+                    custom_system_message_content = download_instructions + "\n\n" + original_system_message
+                    new_messages.append(SystemMessagePromptTemplate.from_template(custom_system_message_content))
+                    system_message_modified = True
+                else: # Should not happen with standard create_prompt
+                    new_messages.append(msg_template) # Keep original if structure is unexpected
+            else:
+                new_messages.append(msg_template)
+
+        if not system_message_modified:
+            print("WARNING: Could not find or modify SystemMessagePromptTemplate in default agent_prompt. Custom download instructions may not be applied.")
+            # Potentially add the instructions as a new system message if none was found, though this is unlikely
+            # For now, we'll proceed with new_messages which would be same as base_prompt.messages
+
+        custom_agent_prompt = ChatPromptTemplate.from_messages(new_messages)
+
+        # Instantiate the agent with the modified prompt
+        agent = ConversationalChatAgent(llm=llm, tools=tools, prompt=custom_agent_prompt)
+        print("ConversationalChatAgent initialized with custom download instructions.")
+
     except Exception as e:
-        print(f"Error creating ConversationalChatAgent: {e}")
-        return None, None # Return None for agent and tools
+        print(f"Error creating ConversationalChatAgent with custom prompt: {e}")
+        # Fallback to default prompt agent if custom fails
+        try:
+            print("Attempting to fall back to default ConversationalChatAgent...")
+            agent = ConversationalChatAgent.from_llm_and_tools(llm=llm, tools=tools) # Default prompt
+            print("Fell back to default ConversationalChatAgent successfully.")
+        except Exception as fallback_e:
+            print(f"Error creating fallback default ConversationalChatAgent: {fallback_e}")
+            return None, None # Critical failure
 
     return agent, tools
 
@@ -54,81 +111,56 @@ def get_agent_response(query: str, agent, tools, session_id: str):
     # Memory Management
     if session_id not in session_memories:
         print(f"Creating new memory for session_id: {session_id}")
-        # return_messages=True is generally preferred for chat models and ConversationalChatAgent
         session_memories[session_id] = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     memory = session_memories[session_id]
-    # Log current history before new input for debugging (optional)
-    # print(f"Using memory for session_id: {session_id}. Current history length: {len(memory.chat_memory.messages)}")
-
 
     # AgentExecutor Creation
     agent_executor = None
     try:
-        # verbose=True is good for debugging
         agent_executor = AgentExecutor.from_agent_and_tools(
             agent=agent,
             tools=tools,
             memory=memory,
             verbose=True,
-            # max_iterations=5, # Optional: prevent runaway agents
-            handle_parsing_errors=True # Useful for robustness against LLM formatting issues
+            handle_parsing_errors=True
         )
-        # print(f"AgentExecutor created successfully for session {session_id}")
     except Exception as e:
         print(f"Error creating AgentExecutor for session {session_id}: {e}")
         return f"Sorry, I encountered an error setting up the agent for your session: {e}"
 
     # Invoke Agent
     try:
-        # The ConversationalChatAgent expects 'input' and 'chat_history'
-        # 'chat_history' is automatically populated by the memory object.
         response = agent_executor.invoke({"input": query})
-        # The output key for ConversationalChatAgent is usually 'output'
-        # Log memory after invoke for debugging (optional)
-        # print(f"Memory for session {session_id} after invoke. History length: {len(memory.chat_memory.messages)}")
         return response.get("output", "Sorry, I could not process that.")
     except Exception as e:
         print(f"Agent Error during invoke for session {session_id}: {e}")
-        # Attempt to provide a more specific error if it's an OutputParsingError
-        # This specific string check might vary based on Langchain versions or error types
-        if "Could not parse LLM output:" in str(e) or isinstance(e, Exception): # Broadened for typical parsing errors
+        if "Could not parse LLM output:" in str(e) or isinstance(e, Exception):
             return "Sorry, the agent's response was not in the expected format. Please try rephrasing your question or try again later."
         return f"Sorry, I encountered an error while processing your request with the agent: {e}"
 
 
 if __name__ == '__main__':
-    # Example usage (for testing agent.py directly)
     if not os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY") == 'YOUR_GOOGLE_API_KEY_HERE':
-        print("Google API key not found or is placeholder. Please set it in .env or as an environment variable.")
+        print("Google API key not found or is placeholder.")
     else:
-        print("Attempting to create Gemini ConversationalChatAgent and tools for testing...")
+        print("Attempting to create agent with custom download instructions...")
         test_agent, test_tools = create_agent()
         if test_agent and test_tools:
-            print("Agent and tools created successfully for testing.")
+            print("Agent and tools created successfully.")
 
-            # Test get_agent_response
-            test_session_id = "test_session_main"
-            print(f"\n--- Test Query 1 for session {test_session_id} ---")
-            response1 = get_agent_response("Hello, my name is Bob.", test_agent, test_tools, test_session_id)
+            test_session_id = "download_test_session"
+            print(f"\n--- Test Query 1 (Download Request) for session {test_session_id} ---")
+            # Example of how the agent might be invoked (directly calling get_agent_response)
+            response1 = get_agent_response("I want to download Google Chrome.", test_agent, test_tools, test_session_id)
             print(f"Response 1: {response1}")
 
-            print(f"\n--- Test Query 2 for session {test_session_id} (testing memory) ---")
-            response2 = get_agent_response("What is my name?", test_agent, test_tools, test_session_id)
+            print(f"\n--- Test Query 2 (Follow-up) for session {test_session_id} ---")
+            response2 = get_agent_response("Is it available for Windows?", test_agent, test_tools, test_session_id)
             print(f"Response 2: {response2}")
 
-            test_session_id_2 = "test_session_main_2"
-            print(f"\n--- Test Query 1 for session {test_session_id_2} ---")
-            response3 = get_agent_response("Hello, my name is Alice.", test_agent, test_tools, test_session_id_2)
+            print(f"\n--- Test Query 3 (General Question) for session {test_session_id} ---")
+            response3 = get_agent_response("What's the weather like?", test_agent, test_tools, test_session_id)
             print(f"Response 3: {response3}")
-
-            print(f"\n--- Test Query 2 for session {test_session_id_2} (testing memory) ---")
-            response4 = get_agent_response("What is my name?", test_agent, test_tools, test_session_id_2)
-            print(f"Response 4: {response4}")
-
-            print(f"\n--- Test Query 3 for session {test_session_id} (testing memory persistence) ---")
-            response5 = get_agent_response("What did I say my name was earlier?", test_agent, test_tools, test_session_id)
-            print(f"Response 5: {response5}")
-
 
         else:
             print("Agent and/or tools creation failed in __main__.")
