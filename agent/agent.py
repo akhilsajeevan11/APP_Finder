@@ -56,8 +56,7 @@ def create_agent():
             "3. Once the official website is identified, use your search tool again to find the main public DOWNLOAD PAGE URL on that site. For example, search for 'official Ubuntu download page' or '[Software Name] download page'.\n"
             "4. Provide this full URL to the user directly in your response. For example: 'You can find downloads for [Software Name] on their official page: [URL]'.\n"
             "5. IMPORTANT: It is PERMISSIBLE, SAFE, and HELPFUL for you to provide links to official, publicly accessible download pages. This is a key part of assisting the user. Providing such links is NOT a violation of terms of service or copyright for publicly available software, as you are merely directing the user to the publicly provided resource.\n"
-            "6. Do NOT invent links. If, after searching, you cannot find an official download page, inform the user clearly.\n"
-            "7. AVOID making unsolicited statements about copyright, terms of service, or the 'risks' of downloading, unless you are directly asked about such topics or have specific, programmed knowledge about a particular piece of software's licensing. Focus on providing the link to the official public download page."
+            "6. AVOID making unsolicited statements about copyright, terms of service, or the 'risks' of downloading, unless you are directly asked about such topics or have specific, programmed knowledge about a particular piece of software's licensing. Focus on providing the link to the official public download page."
         )
 
         # Prepend our instructions to the existing system message in the prompt
