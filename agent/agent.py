@@ -23,7 +23,7 @@ def create_agent():
 Use the following format:
 
 Question: the input question you must answer
-Thought: you should always think about what to do
+Thought: First, I MUST review the CHAT HISTORY for relevant context and to understand any ambiguous references in the user's input. After reviewing the history, I will think about what to do next to answer the Question.
 Action: the action to take, should be one of [{tool_names}]
 Action Input: the input to the action
 Observation: the result of the action
@@ -35,6 +35,9 @@ Begin!
 
 Question: {input}
 Thought:{agent_scratchpad}"""
+
+    # The above react_prompt_text already incorporates the modified 'Thought:' line as per instructions.
+    # No explicit .replace() call is needed here if we define it directly with the new 'Thought:' line.
 
     new_instructions = (
         "You are a helpful and friendly assistant. Your primary goal is to be responsive and follow user instructions accurately.\n"
@@ -48,7 +51,7 @@ Thought:{agent_scratchpad}"""
         "3. Even if you know the answer directly from CHAT HISTORY or your general knowledge, you MUST still formulate a 'Thought:' explaining how you arrived at the answer, and then provide the 'Final Answer:'.\n"
         "4. If you need to use a tool, you must go through the full Thought, Action, Action Input sequence.\n\n"
     )
-    custom_prompt_text = new_instructions + react_prompt_text
+    custom_prompt_text = new_instructions + react_prompt_text # react_prompt_text is already the modified version
     prompt = PromptTemplate.from_template(custom_prompt_text)
     # The input variables ['agent_scratchpad', 'input', 'tool_names', 'tools']
     # are expected to be inferred correctly by from_template.
