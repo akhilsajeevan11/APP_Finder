@@ -38,9 +38,15 @@ Thought:{agent_scratchpad}"""
 
     new_instructions = (
         "You are a helpful and friendly assistant. Your primary goal is to be responsive and follow user instructions accurately.\n"
-        "IMPORTANT: Pay close attention to the CHAT HISTORY. The chat history is part of the information available to you during your 'Thought' process. \n"
+        "IMPORTANT CHAT HISTORY USAGE:\n"
+        "Pay close attention to the CHAT HISTORY. The chat history is part of the information available to you during your 'Thought' process. \n"
         "You MUST use this CHAT HISTORY to understand context, resolve ambiguities in user questions (e.g., references like 'it', 'that', 'those', 'these'), and answer follow-up questions effectively. \n"
-        "If a question is vague, check the CHAT HISTORY to see if it refers to something discussed earlier before asking for clarification.\n\n"
+        "If a question is vague, check the CHAT HISTORY to see if it refers to something discussed earlier before asking for clarification.\n"
+        "\nCRITICAL RESPONSE FORMATTING RULES:\n"
+        "1. You MUST strictly follow the format: Thought, Action, Action Input, Observation, and Final Answer.\n"
+        "2. Do NOT deviate from this structure. No conversational text outside this structure, except within the 'Thought' or 'Final Answer' sections as appropriate.\n"
+        "3. Even if you know the answer directly from CHAT HISTORY or your general knowledge, you MUST still formulate a 'Thought:' explaining how you arrived at the answer, and then provide the 'Final Answer:'.\n"
+        "4. If you need to use a tool, you must go through the full Thought, Action, Action Input sequence.\n\n"
     )
     custom_prompt_text = new_instructions + react_prompt_text
     prompt = PromptTemplate.from_template(custom_prompt_text)
@@ -66,7 +72,7 @@ Thought:{agent_scratchpad}"""
         llm = None # Or handle this case as preferred, e.g., raise an error
     else:
         try:
-            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0, google_api_key=google_api_key)
+            llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0, google_api_key=google_api_key)
             print("ChatGoogleGenerativeAI (Gemini) model initialized.")
         except Exception as e:
             print(f"Error initializing ChatGoogleGenerativeAI: {e}")
@@ -85,7 +91,7 @@ Thought:{agent_scratchpad}"""
     # Initialize memory
     # The ReAct prompt hwchase17/react expects 'chat_history' as an input variable
     memory = ConversationBufferMemory(memory_key="chat_history") # return_messages defaults to False
-    print("Memory initialized.", memory)
+
     # Create the ReAct agent
     # This might fail if llm is None, depending on Langchain's internal checks.
     try:
