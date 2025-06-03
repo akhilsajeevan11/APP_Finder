@@ -5,6 +5,7 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain.memory import ConversationBufferMemory # Added for memory
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain import hub
+from langchain.prompts import PromptTemplate # Added for custom prompt
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -12,7 +13,45 @@ load_dotenv()
 
 def create_agent():
     # Get the prompt template
-    prompt = hub.pull("hwchase17/react")
+    # prompt = hub.pull("hwchase17/react") # Commented out to use custom prompt
+
+    # Define the original react prompt text (fetched in a previous step)
+    react_prompt_text = """Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}"""
+
+    new_instructions = (
+        "You are a helpful and friendly assistant. Your primary goal is to be responsive and follow user instructions accurately.\n"
+        "IMPORTANT: Pay close attention to the CHAT HISTORY. The chat history is part of the information available to you during your 'Thought' process. \n"
+        "You MUST use this CHAT HISTORY to understand context, resolve ambiguities in user questions (e.g., references like 'it', 'that', 'those', 'these'), and answer follow-up questions effectively. \n"
+        "If a question is vague, check the CHAT HISTORY to see if it refers to something discussed earlier before asking for clarification.\n\n"
+    )
+    custom_prompt_text = new_instructions + react_prompt_text
+    prompt = PromptTemplate.from_template(custom_prompt_text)
+    # The input variables ['agent_scratchpad', 'input', 'tool_names', 'tools']
+    # are expected to be inferred correctly by from_template.
+    # If issues arise, uncomment and set explicitly:
+    # prompt.input_variables = ['agent_scratchpad', 'input', 'tool_names', 'tools', 'chat_history']
+    # Note: 'chat_history' is handled by memory and injected into 'agent_scratchpad' by the agent executor typically for ReAct.
+    # The custom instructions refer to CHAT HISTORY, which the agent needs to be aware of conceptually.
+    # The memory mechanism (ConversationBufferMemory with memory_key="chat_history") will make actual history available.
+    # The agent's internal logic (via agent_scratchpad) should make use of this.
 
     # Initialize the LLM
     # --- OpenAI LLM (Commented Out) ---
@@ -27,7 +66,7 @@ def create_agent():
         llm = None # Or handle this case as preferred, e.g., raise an error
     else:
         try:
-            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0, google_api_key=google_api_key)
+            llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0, google_api_key=google_api_key)
             print("ChatGoogleGenerativeAI (Gemini) model initialized.")
         except Exception as e:
             print(f"Error initializing ChatGoogleGenerativeAI: {e}")
