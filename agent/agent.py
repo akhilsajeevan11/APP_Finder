@@ -45,7 +45,7 @@ def create_agent():
 
     # Initialize memory
     # The ReAct prompt hwchase17/react expects 'chat_history' as an input variable
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    memory = ConversationBufferMemory(memory_key="chat_history") # return_messages defaults to False
 
     # Create the ReAct agent
     # This might fail if llm is None, depending on Langchain's internal checks.
