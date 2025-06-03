@@ -1,142 +1,134 @@
 import os
-# from langchain_openai import ChatOpenAI # Commented out OpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.memory import ConversationBufferMemory # Added for memory
 from langchain_community.tools import DuckDuckGoSearchRun
-from langchain import hub
-from langchain.prompts import PromptTemplate # Added for custom prompt
+from langchain.agents import AgentExecutor, ConversationalChatAgent
+from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
+# Global store for session memories
+session_memories = {}
+
 def create_agent():
-    # Get the prompt template
-    # prompt = hub.pull("hwchase17/react") # Commented out to use custom prompt
-
-    # Define the original react prompt text (fetched in a previous step)
-    react_prompt_text = """Answer the following questions as best you can. You have access to the following tools:
-
-{tools}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: First, I MUST review the CHAT HISTORY for relevant context and to understand any ambiguous references in the user's input. After reviewing the history, I will think about what to do next to answer the Question.
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-Begin!
-
-Question: {input}
-Thought:{agent_scratchpad}"""
-
-    # The above react_prompt_text already incorporates the modified 'Thought:' line as per instructions.
-    # No explicit .replace() call is needed here if we define it directly with the new 'Thought:' line.
-
-    new_instructions = (
-        "You are a helpful and friendly assistant. Your primary goal is to be responsive and follow user instructions accurately.\n"
-        "IMPORTANT CHAT HISTORY USAGE:\n"
-        "Pay close attention to the CHAT HISTORY. The chat history is part of the information available to you during your 'Thought' process. \n"
-        "You MUST use this CHAT HISTORY to understand context, resolve ambiguities in user questions (e.g., references like 'it', 'that', 'those', 'these'), and answer follow-up questions effectively. \n"
-        "If a question is vague, check the CHAT HISTORY to see if it refers to something discussed earlier before asking for clarification.\n"
-        "\nCRITICAL RESPONSE FORMATTING RULES:\n"
-        "1. You MUST strictly follow the format: Thought, Action, Action Input, Observation, and Final Answer.\n"
-        "2. Do NOT deviate from this structure. No conversational text outside this structure, except within the 'Thought' or 'Final Answer' sections as appropriate.\n"
-        "3. Even if you know the answer directly from CHAT HISTORY or your general knowledge, you MUST still formulate a 'Thought:' explaining how you arrived at the answer, and then provide the 'Final Answer:'.\n"
-        "4. If you need to use a tool, you must go through the full Thought, Action, Action Input sequence.\n\n"
-    )
-    custom_prompt_text = new_instructions + react_prompt_text # react_prompt_text is already the modified version
-    prompt = PromptTemplate.from_template(custom_prompt_text)
-    # The input variables ['agent_scratchpad', 'input', 'tool_names', 'tools']
-    # are expected to be inferred correctly by from_template.
-    # If issues arise, uncomment and set explicitly:
-    # prompt.input_variables = ['agent_scratchpad', 'input', 'tool_names', 'tools', 'chat_history']
-    # Note: 'chat_history' is handled by memory and injected into 'agent_scratchpad' by the agent executor typically for ReAct.
-    # The custom instructions refer to CHAT HISTORY, which the agent needs to be aware of conceptually.
-    # The memory mechanism (ConversationBufferMemory with memory_key="chat_history") will make actual history available.
-    # The agent's internal logic (via agent_scratchpad) should make use of this.
-
-    # Initialize the LLM
-    # --- OpenAI LLM (Commented Out) ---
-    # llm = ChatOpenAI(temperature=0)
-    # Make sure OPENAI_API_KEY is set in your environment or .env file
-
-    # +++ Google Gemini LLM (New) +++
-    # Make sure GOOGLE_API_KEY is set in your environment or .env file
+    # LLM Initialization (Gemini)
     google_api_key = os.getenv("GOOGLE_API_KEY")
+    llm = None
     if not google_api_key or google_api_key == 'YOUR_GOOGLE_API_KEY_HERE':
         print("WARNING: GOOGLE_API_KEY not found or is a placeholder. Gemini agent will not function.")
-        llm = None # Or handle this case as preferred, e.g., raise an error
     else:
         try:
             llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0, google_api_key=google_api_key)
             print("ChatGoogleGenerativeAI (Gemini) model initialized.")
         except Exception as e:
             print(f"Error initializing ChatGoogleGenerativeAI: {e}")
-            llm = None
+            # llm remains None
 
     if not llm:
-        print("LLM not initialized. Agent creation will likely fail or be non-functional.")
-        # Depending on Langchain version and agent type,
-        # passing None LLM might raise error immediately or later.
-        # For robust error handling, this should ideally be caught before creating agent_executor
-        return None # Explicitly return None if LLM failed to initialize
+        print("LLM not initialized. Agent creation will fail.")
+        return None, None # Return None for agent and tools
 
     # Initialize tools
     tools = [DuckDuckGoSearchRun()]
 
-    # Initialize memory
-    # The ReAct prompt hwchase17/react expects 'chat_history' as an input variable
-    memory = ConversationBufferMemory(memory_key="chat_history") # return_messages defaults to False
-
-    # Create the ReAct agent
-    # This might fail if llm is None, depending on Langchain's internal checks.
+    # Create the ConversationalChatAgent
+    agent = None
     try:
-        agent = create_react_agent(llm, tools, prompt)
+        # This uses a default prompt template optimized for conversational chat with tools
+        agent = ConversationalChatAgent.from_llm_and_tools(llm=llm, tools=tools)
+        print("ConversationalChatAgent initialized.")
     except Exception as e:
-        print(f"Error creating React agent with Gemini: {e}")
-        return None
+        print(f"Error creating ConversationalChatAgent: {e}")
+        return None, None # Return None for agent and tools
 
-    # Create an agent executor
-    agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory, verbose=True)
+    return agent, tools
 
-    return agent_executor
-
-def get_agent_response(query: str, agent_executor: AgentExecutor):
+def get_agent_response(query: str, agent, tools, session_id: str):
     """
-    Gets a response from the Langchain agent.
+    Gets a response from the Langchain agent, managing session memory and AgentExecutor.
     """
-    if agent_executor is None:
-        return "Sorry, the agent is not available (LLM not initialized)."
+    if agent is None or tools is None:
+        return "Sorry, the core agent components are not properly initialized."
 
+    # Memory Management
+    if session_id not in session_memories:
+        print(f"Creating new memory for session_id: {session_id}")
+        # return_messages=True is generally preferred for chat models and ConversationalChatAgent
+        session_memories[session_id] = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    memory = session_memories[session_id]
+    # Log current history before new input for debugging (optional)
+    # print(f"Using memory for session_id: {session_id}. Current history length: {len(memory.chat_memory.messages)}")
+
+
+    # AgentExecutor Creation
+    agent_executor = None
     try:
+        # verbose=True is good for debugging
+        agent_executor = AgentExecutor.from_agent_and_tools(
+            agent=agent,
+            tools=tools,
+            memory=memory,
+            verbose=True,
+            # max_iterations=5, # Optional: prevent runaway agents
+            handle_parsing_errors=True # Useful for robustness against LLM formatting issues
+        )
+        # print(f"AgentExecutor created successfully for session {session_id}")
+    except Exception as e:
+        print(f"Error creating AgentExecutor for session {session_id}: {e}")
+        return f"Sorry, I encountered an error setting up the agent for your session: {e}"
+
+    # Invoke Agent
+    try:
+        # The ConversationalChatAgent expects 'input' and 'chat_history'
+        # 'chat_history' is automatically populated by the memory object.
         response = agent_executor.invoke({"input": query})
+        # The output key for ConversationalChatAgent is usually 'output'
+        # Log memory after invoke for debugging (optional)
+        # print(f"Memory for session {session_id} after invoke. History length: {len(memory.chat_memory.messages)}")
         return response.get("output", "Sorry, I could not process that.")
     except Exception as e:
-        print(f"Agent Error: {e}")
-        return "Sorry, I encountered an error while processing your request with the agent."
+        print(f"Agent Error during invoke for session {session_id}: {e}")
+        # Attempt to provide a more specific error if it's an OutputParsingError
+        # This specific string check might vary based on Langchain versions or error types
+        if "Could not parse LLM output:" in str(e) or isinstance(e, Exception): # Broadened for typical parsing errors
+            return "Sorry, the agent's response was not in the expected format. Please try rephrasing your question or try again later."
+        return f"Sorry, I encountered an error while processing your request with the agent: {e}"
+
 
 if __name__ == '__main__':
     # Example usage (for testing agent.py directly)
     if not os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY") == 'YOUR_GOOGLE_API_KEY_HERE':
         print("Google API key not found or is placeholder. Please set it in .env or as an environment variable.")
-        print("Example .env content: GOOGLE_API_KEY='YOUR_ACTUAL_KEY'")
     else:
-        print("Attempting to create Gemini agent and get a response (this requires network access and valid API key)...")
-        try:
-            agent_executor = create_agent()
-            if agent_executor:
-                test_query = "What's the latest version of Google Chrome using Gemini?"
-                print(f"Testing agent with query: {test_query}")
-                response = get_agent_response(test_query, agent_executor)
-                print(f"Agent Response: {response}")
-            else:
-                print("Agent executor not created. Cannot run test query.")
-        except Exception as e:
-            print(f"Error during agent test: {e}")
+        print("Attempting to create Gemini ConversationalChatAgent and tools for testing...")
+        test_agent, test_tools = create_agent()
+        if test_agent and test_tools:
+            print("Agent and tools created successfully for testing.")
+
+            # Test get_agent_response
+            test_session_id = "test_session_main"
+            print(f"\n--- Test Query 1 for session {test_session_id} ---")
+            response1 = get_agent_response("Hello, my name is Bob.", test_agent, test_tools, test_session_id)
+            print(f"Response 1: {response1}")
+
+            print(f"\n--- Test Query 2 for session {test_session_id} (testing memory) ---")
+            response2 = get_agent_response("What is my name?", test_agent, test_tools, test_session_id)
+            print(f"Response 2: {response2}")
+
+            test_session_id_2 = "test_session_main_2"
+            print(f"\n--- Test Query 1 for session {test_session_id_2} ---")
+            response3 = get_agent_response("Hello, my name is Alice.", test_agent, test_tools, test_session_id_2)
+            print(f"Response 3: {response3}")
+
+            print(f"\n--- Test Query 2 for session {test_session_id_2} (testing memory) ---")
+            response4 = get_agent_response("What is my name?", test_agent, test_tools, test_session_id_2)
+            print(f"Response 4: {response4}")
+
+            print(f"\n--- Test Query 3 for session {test_session_id} (testing memory persistence) ---")
+            response5 = get_agent_response("What did I say my name was earlier?", test_agent, test_tools, test_session_id)
+            print(f"Response 5: {response5}")
+
+
+        else:
+            print("Agent and/or tools creation failed in __main__.")
