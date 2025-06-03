@@ -2,6 +2,7 @@ import os
 # from langchain_openai import ChatOpenAI # Commented out OpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_react_agent
+from langchain.memory import ConversationBufferMemory # Added for memory
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain import hub
 from dotenv import load_dotenv
@@ -42,6 +43,10 @@ def create_agent():
     # Initialize tools
     tools = [DuckDuckGoSearchRun()]
 
+    # Initialize memory
+    # The ReAct prompt hwchase17/react expects 'chat_history' as an input variable
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
     # Create the ReAct agent
     # This might fail if llm is None, depending on Langchain's internal checks.
     try:
@@ -51,7 +56,7 @@ def create_agent():
         return None
 
     # Create an agent executor
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory, verbose=True)
 
     return agent_executor
 
