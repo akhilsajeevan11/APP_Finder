@@ -27,7 +27,7 @@ def create_agent():
         llm = None # Or handle this case as preferred, e.g., raise an error
     else:
         try:
-            llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0, google_api_key=google_api_key)
+            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0, google_api_key=google_api_key)
             print("ChatGoogleGenerativeAI (Gemini) model initialized.")
         except Exception as e:
             print(f"Error initializing ChatGoogleGenerativeAI: {e}")
