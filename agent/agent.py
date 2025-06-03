@@ -49,16 +49,18 @@ def create_agent():
 
         # Define our custom instructions for downloads
         download_instructions = (
-            "\n\nSPECIFIC TASK: SOFTWARE DOWNLOADS\n"
-            "When a user explicitly asks to download software, an application, or a file:\n"
-            "1. Use your search tool to find the official website or a reputable source for the requested software.\n"
-            "2. Your primary goal is to find a direct download link for an installable file (e.g., .exe, .dmg, .tar.gz, .zip containing an installer).\n"
-            "3. If you find a general download page with multiple options (e.g., for different operating systems, versions, or architectures), you should either: \n"
-            "   a. List the main options clearly so the user can choose. \n"
-            "   b. Ask the user for clarification (e.g., 'What is your operating system?').\n"
-            "4. When providing a link, clearly state if it is a direct link to an installable file or a link to a webpage with further download instructions or options.\n"
-            "5. If, after searching, you cannot find a direct installable file link or a clear download page, inform the user of this and provide the link to the most relevant official product/project page you found.\n"
-            "Do not attempt to invent download links. Only provide links found through your search tool."
+            "\n\nSPECIFIC TASK: PROVIDING SOFTWARE DOWNLOAD LINKS\n"
+            "When a user explicitly expresses a desire to download software, an application, or a file (e.g., 'I want to download X', 'download X', 'get X for download'):\n"
+            "1. Your primary goal is to PROVIDE a relevant download link directly to the user in your response.\n"
+            "2. First, identify the official or most reputable source website for the software (e.g., 'ubuntu.com' for Ubuntu, 'python.org' for Python).\n"
+            "   - If you are confident about the official source website, proceed to step 3.\n"
+            "   - If you are unsure of the official source, use your search tool ONCE to find this official source website. Prioritize results that look like official project pages or vendor sites.\n"
+            "3. Once the official source website is identified, use your search tool to find the SPECIFIC DOWNLOAD PAGE URL on that website. For example, if the source is 'ubuntu.com', search for 'official Ubuntu download page link' or 'Ubuntu 24.04 download link'.\n"
+            "4. After obtaining the download page URL from your search, present this URL to the user. State clearly that this is the download page where they can find the installer or further options.\n"
+            "5. If the search results provide a direct link to an installable file (e.g., .exe, .dmg, .tar.gz) from the official source, you may provide that direct file link, but clearly label it as a direct file download and mention the OS/version if known.\n"
+            "6. If the download page has multiple options (e.g., for different operating systems, versions), provide the link to the main download page and briefly mention that the user will need to select the appropriate option there.\n"
+            "7. If, after searching, you cannot find a clear download page or link from an official/reputable source, inform the user of this. Do not invent links.\n"
+            "8. Do not just mention the website name (e.g., 'go to ubuntu.com'); your task is to provide the actual URL to the download page or, if possible, the direct file link."
         )
 
         # Prepend our instructions to the existing system message in the prompt
