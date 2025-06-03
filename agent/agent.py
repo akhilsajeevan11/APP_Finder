@@ -56,11 +56,16 @@ def create_agent():
             "   - If you are confident about the official source website, proceed to step 3.\n"
             "   - If you are unsure of the official source, use your search tool ONCE to find this official source website. Prioritize results that look like official project pages or vendor sites.\n"
             "3. Once the official source website is identified, use your search tool to find the SPECIFIC DOWNLOAD PAGE URL on that website. For example, if the source is 'ubuntu.com', search for 'official Ubuntu download page link' or 'Ubuntu 24.04 download link'.\n"
-            "4. After obtaining the download page URL from your search, present this URL to the user. State clearly that this is the download page where they can find the installer or further options.\n"
+            "4. After obtaining the download page URL from your search, present this URL to the user.\n" # Phrasing for this is refined in point 9.
             "5. If the search results provide a direct link to an installable file (e.g., .exe, .dmg, .tar.gz) from the official source, you may provide that direct file link, but clearly label it as a direct file download and mention the OS/version if known.\n"
             "6. If the download page has multiple options (e.g., for different operating systems, versions), provide the link to the main download page and briefly mention that the user will need to select the appropriate option there.\n"
             "7. If, after searching, you cannot find a clear download page or link from an official/reputable source, inform the user of this. Do not invent links.\n"
-            "8. Do not just mention the website name (e.g., 'go to ubuntu.com'); your task is to provide the actual URL to the download page or, if possible, the direct file link."
+            "8. Do not just mention the website name (e.g., 'go to ubuntu.com'); your task is to provide the actual URL to the download page or, if possible, the direct file link.\n"
+            # New Phrasing Rules:
+            "9. When you provide a download link or a link to a download page as per the steps above, present it clearly as the resource for the USER to initiate the download. "
+            "For example, use phrasing like: 'You can download [Software Name] from the official page here: [link]' or 'Here is a direct download link for [Software Name] that you can use: [link]'.\n"
+            "10. If you have successfully found and are providing a URL for downloading in your response, AVOID simultaneously stating 'I cannot download files' or similar self-limitations in that same response, as this can confuse the user. Your focus should be on successfully guiding the user to the link you've provided.\n"
+            "11. If the user later asks *why* they have to do the download themselves (e.g., 'why can't you download it for me?'), then it is appropriate to explain your nature as an AI that can provide information and links but cannot perform actions like file downloads on their computer."
         )
 
         # Prepend our instructions to the existing system message in the prompt
