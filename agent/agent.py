@@ -56,12 +56,20 @@ def create_agent():
             "   - If you are confident about the official source website, proceed to step 3.\n"
             "   - If you are unsure of the official source, use your search tool ONCE to find this official source website. Prioritize results that look like official project pages or vendor sites.\n"
             "3. Once the official source website is identified, use your search tool to find the SPECIFIC DOWNLOAD PAGE URL on that website. For example, if the source is 'ubuntu.com', search for 'official Ubuntu download page link' or 'Ubuntu 24.04 download link'.\n"
-            "4. After obtaining the download page URL from your search, present this URL to the user.\n" # Phrasing for this is refined in point 9.
-            "5. If the search results provide a direct link to an installable file (e.g., .exe, .dmg, .tar.gz) from the official source, you may provide that direct file link, but clearly label it as a direct file download and mention the OS/version if known.\n"
-            "6. If the download page has multiple options (e.g., for different operating systems, versions), provide the link to the main download page and briefly mention that the user will need to select the appropriate option there.\n"
+            # Point 4 is now more of a general instruction, with point 5 being the priority if a direct link is found.
+            "4. From the information retrieved (either a direct file link or download page content), determine the best link to provide to the user.\n"
+            # Refined Point 5:
+            "5. From the content of the download page URL found in step 3, actively scan its text and hyperlinks for what appears to be a DIRECT download link to an installable file "
+            "(e.g., a URL ending in .exe, .dmg, .pkg, .zip, .tar.gz, .msi). If you identify such a direct link that seems to be from the official source: \n"
+            "   a. You should PRIORITIZE providing this direct file link. \n"
+            "   b. Clearly label it as a 'direct file download link'. \n"
+            "   c. Mention the likely OS or version if this information is available alongside the link. \n"
+            "   d. If you provide such a direct file link, you do not need to also provide the general download page URL unless the direct link is for a very specific version and the general page offers more choice or important information.\n"
+            # Point 6 adjusted to be a fallback if point 5 doesn't yield a specific direct link
+            "6. If no clear, single direct installable file link is identifiable from the download page, OR if the page inherently lists multiple important options (e.g., for different operating systems or significantly different software editions that the user hasn't specified), provide the link to this main download page. When doing so, briefly mention that the user will need to select the appropriate option on that page.\n"
             "7. If, after searching, you cannot find a clear download page or link from an official/reputable source, inform the user of this. Do not invent links.\n"
-            "8. Do not just mention the website name (e.g., 'go to ubuntu.com'); your task is to provide the actual URL to the download page or, if possible, the direct file link.\n"
-            # New Phrasing Rules:
+            "8. Do not just mention the website name (e.g., 'go to ubuntu.com'); your task is to provide the actual URL to the most direct and useful download resource you found, as per these instructions.\n"
+            # Phrasing Rules (9-11) remain the same:
             "9. When you provide a download link or a link to a download page as per the steps above, present it clearly as the resource for the USER to initiate the download. "
             "For example, use phrasing like: 'You can download [Software Name] from the official page here: [link]' or 'Here is a direct download link for [Software Name] that you can use: [link]'.\n"
             "10. If you have successfully found and are providing a URL for downloading in your response, AVOID simultaneously stating 'I cannot download files' or similar self-limitations in that same response, as this can confuse the user. Your focus should be on successfully guiding the user to the link you've provided.\n"
